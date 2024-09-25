@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Texture Pack Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .left-panel {
+            width: 30%;
+            padding: 20px;
+            background-color: #f4f4f4;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .right-panel {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .tools {
+            margin-bottom: 20px;
+        }
+
+        .tools button {
+            padding: 10px 20px;
+            margin-right: 10px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        #canvas {
+            border: 1px solid #ddd;
+            width: 256px;
+            height: 256px;
+            image-rendering: pixelated;
+        }
+
+        .search-bar {
+            margin-bottom: 20px;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .image-list img {
+            width: 100%;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="left-panel">
+        <h2>Search Texture</h2>
+        <div class="search-bar">
+            <input type="text" id="search" placeholder="Search textures...">
+        </div>
+
+        <div class="image-list" id="imageList">
+            <!-- Images will be loaded here -->
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <h2>Texture Editor (16x16)</h2>
+
+        <div class="tools">
+            <button id="pencil">Pencil</button>
+            <button id="eraser">Eraser</button>
+            <input type="file" id="uploadZip" accept=".zip" />
+        </div>
+
+        <canvas id="canvas" width="256" height="256"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const imageList = document.getElementById('imageList');
+        const searchInput = document.getElementById('search');
+        let tool = 'pencil';
+
+        // Handle tool selection
+        document.getElementById('pencil').addEventListener('click', () => tool = 'pencil');
+        document.getElementById('eraser').addEventListener('click', () => tool = 'eraser');
+
+        // Handle canvas drawing
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+
+        let isDrawing = false;
+
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / 16) * 16;
+            const y = Math.floor((e.clientY - rect.top) / 16) * 16;
+
+            if (tool === 'pencil') {
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(x, y, 16, 16);
+            } else if (tool === 'eraser') {
+                ctx.clearRect(x, y, 16, 16);
+            }
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+        }
+
+        // Handle file upload and image loading using JSZip
+        document.getElementById('uploadZip').addEventListener('change', function () {
+            const file = this.files[0];
+            if (file) {
+                const zip = new JSZip();
+                zip.loadAsync(file).then(function (zip) {
+                    // Clear previous images
+                    imageList.innerHTML = '';
+                    
+                    // Loop through each file in the zip
+                    zip.forEach((relativePath, file) => {
+                        if (file.name.endsWith('.png')) {  // Only handle PNG files
+                            file.async("blob").then(function (blob) {
+                                const imgURL = URL.createObjectURL(blob);
+                                const imgElement = document.createElement('img');
+                                imgElement.src = imgURL;
+                                imgElement.alt = file.name;
+
+                                // When the image is clicked, load it onto the canvas
+                                imgElement.addEventListener('click', () => {
+                                    loadImageToCanvas(imgURL);
+                                });
+
+                                imageList.appendChild(imgElement);
+                            });
+                        }
+                    });
+                });
+            }
+        });
+
+        // Function to load image to canvas
+        function loadImageToCanvas(imageSrc) {
+            const img = new Image();
+            img.src = imageSrc;
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+        }
+
+        // Search and filter images
+        searchInput.addEventListener('input', function () {
+            const searchTerm = this.value.toLowerCase();
+            const images = document.querySelectorAll('.image-list img');
+            images.forEach(img => {
+                if (img.alt.toLowerCase().includes(searchTerm)) {
+                    img.style.display = '';
+                } else {
+                    img.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
